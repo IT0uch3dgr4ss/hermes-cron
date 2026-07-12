@@ -23,15 +23,9 @@ jobs:
       - name: Checkout repo (for any scripts)
         uses: actions/checkout@v4
 
-      - name: Setup Node.js (for Hermes CLI if npm-based)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
       - name: Install Hermes CLI
         run: |
-          # Download binary directly (adjust URL/version)
+          # Download binary directly
           curl -fsSL https://github.com/nousresearch/hermes/releases/latest/download/hermes-linux-x64 -o hermes
           chmod +x hermes
           sudo mv hermes /usr/local/bin/hermes
@@ -65,10 +59,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
 
       - name: Install Hermes CLI
         run: |
@@ -103,10 +93,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
 
       - name: Install Hermes CLI
         run: |
@@ -141,10 +127,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
 
       - name: Install Hermes CLI
         run: |
