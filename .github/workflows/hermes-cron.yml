@@ -1,4 +1,4 @@
-name: Hermes Cron Jobs (NVIDIA Nemotron 3 Ultra)
+name: Hermes Cron Jobs (OpenRouter Free)
 
 on:
   schedule:
@@ -36,9 +36,9 @@ jobs:
       - name: Run Spain News Summary (with retry)
         id: spain
         env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -125,9 +125,9 @@ jobs:
       - name: Run AI Summary (with retry)
         id: ai
         env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -213,9 +213,9 @@ jobs:
       - name: Run Tech/Startups Summary (with retry)
         id: tech
         env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -301,9 +301,9 @@ jobs:
       - name: Run Weekly Summary (with retry)
         id: weekly
         env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
