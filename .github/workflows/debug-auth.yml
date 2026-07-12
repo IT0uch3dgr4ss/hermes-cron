@@ -1,0 +1,26 @@
+name: Debug NVIDIA Secrets
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets exist
+        run: |
+          echo "NVIDIA_API_KEY: ${NVIDIA_API_KEY:0:10}..."
+          echo "TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:0:10}..."
+          echo "TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}"
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      
+      - name: Test NVIDIA API directly
+        run: |
+          curl -s -X GET https://integrate.api.nvidia.com/v1/models \
+            -H "Authorization: Bearer $NVIDIA_API_KEY" \
+            -H "Content-Type: application/json" | jq .
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
