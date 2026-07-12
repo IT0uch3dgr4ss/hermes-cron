@@ -39,7 +39,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes chat -z "
+          hermes -z "
           Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
 
           1. **Política** (2-3 titulares clave)
@@ -49,7 +49,7 @@ jobs:
           5. **Internacional relevante para España** (1 titular)
 
           Formato: bullets concisos, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono periodístico neutral.
-          " --skill web
+          " chat --skill web
 
   # Job 2: Resumen IA (08:15 CEST)
   news-ai:
@@ -76,7 +76,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes chat -z "
+          hermes -z "
           Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
 
           1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
@@ -86,7 +86,7 @@ jobs:
           5. **Aplicaciones/Casos de uso** (deployments reales, productos)
 
           Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono técnico pero accesible.
-          " --skill web
+          " chat --skill web
 
   # Job 3: Resumen Tech/Startups (08:30 CEST)
   news-tech:
@@ -113,7 +113,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes chat -z "
+          hermes -z "
           Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
 
           1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
@@ -123,7 +123,7 @@ jobs:
           5. **Tendencias/Análisis** (un dato/señal de mercado relevante)
 
           Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono business/tech.
-          " --skill web
+          " chat --skill web
 
   # Job 4: Resumen Semanal (Lunes 07:00 CEST)
   weekly-summary:
@@ -150,7 +150,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes chat -z "
+          hermes -z "
           Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
 
           ## 📅 Semana del [fecha lunes] al [fecha domingo]
@@ -162,7 +162,7 @@ jobs:
           ### 🔮 Señal a vigilar (1 tendencia emergente)
 
           Fuentes: mismas que trabajos diarios + newsletters semanales (The Batch, Stratechery, Exponential View, Benedict Evans, etc.). Formato: bullets concisos, fuente entre paréntesis. ~300-400 palabras. Tono ejecutivo/estratégico.
-          " --skill web
+          " chat --skill web
 
   # Optional: Notify on failure (email, Slack, Telegram, etc.)
   notify-failure:
