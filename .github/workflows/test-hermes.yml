@@ -1,0 +1,24 @@
+name: Test Hermes Direct
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Hermes
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+          hermes --version
+      
+      - name: Test Hermes with NVIDIA
+        env:
+          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
+          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          hermes -z "Responde solo: OK" chat --skill web 2>&1
