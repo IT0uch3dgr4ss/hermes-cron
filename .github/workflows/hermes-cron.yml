@@ -1,0 +1,189 @@
+name: Hermes Cron Jobs (NVIDIA Nemotron)
+
+on:
+  schedule:
+    # Daily 08:00 CEST = 06:00 UTC
+    - cron: '0 6 * * *'
+    # Daily 08:15 CEST = 06:15 UTC
+    - cron: '15 6 * * *'
+    # Daily 08:30 CEST = 06:30 UTC
+    - cron: '30 6 * * *'
+    # Weekly Monday 07:00 CEST = 05:00 UTC
+    - cron: '0 5 * * 1'
+  workflow_dispatch:  # Allow manual trigger from GitHub UI/API
+
+jobs:
+  # Job 1: Resumen noticias España (08:00 CEST)
+  news-spain:
+    name: 📰 Resumen noticias España
+    if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo (for any scripts)
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (for Hermes CLI if npm-based)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Hermes CLI
+        run: |
+          # Download binary directly (adjust URL/version)
+          curl -fsSL https://github.com/nousresearch/hermes/releases/latest/download/hermes-linux-x64 -o hermes
+          chmod +x hermes
+          sudo mv hermes /usr/local/bin/hermes
+
+          # Verify
+          hermes --version
+
+      - name: Run Spain News Summary
+        env:
+          HERMES_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
+          HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          hermes run --prompt "
+          Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
+
+          1. **Política** (2-3 titulares clave)
+          2. **Economía/Empresa** (2-3 titulares clave)
+          3. **Sociedad/Sucesos** (1-2 titulares)
+          4. **Deportes** (1-2 titulares)
+          5. **Internacional relevante para España** (1 titular)
+
+          Formato: bullets concisos, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono periodístico neutral.
+          " --skill web
+
+  # Job 2: Resumen IA (08:15 CEST)
+  news-ai:
+    name: 🤖 Resumen IA
+    if: github.event.schedule == '15 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Hermes CLI
+        run: |
+          curl -fsSL https://github.com/nousresearch/hermes/releases/latest/download/hermes-linux-x64 -o hermes
+          chmod +x hermes
+          sudo mv hermes /usr/local/bin/hermes
+          hermes --version
+
+      - name: Run AI Summary
+        env:
+          HERMES_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
+          HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          hermes run --prompt "
+          Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
+
+          1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
+          2. **Investigación destacada** (papers con impacto, autores clave)
+          3. **Industria/Big Tech** (anuncios, partnerships, funding, regulación)
+          4. **Herramientas/Framework** (nuevas librerías, updates mayores)
+          5. **Aplicaciones/Casos de uso** (deployments reales, productos)
+
+          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono técnico pero accesible.
+          " --skill web
+
+  # Job 3: Resumen Tech/Startups (08:30 CEST)
+  news-tech:
+    name: 💻 Resumen Tech/Startups
+    if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Hermes CLI
+        run: |
+          curl -fsSL https://github.com/nousresearch/hermes/releases/latest/download/hermes-linux-x64 -o hermes
+          chmod +x hermes
+          sudo mv hermes /usr/local/bin/hermes
+          hermes --version
+
+      - name: Run Tech/Startups Summary
+        env:
+          HERMES_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
+          HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          hermes run --prompt "
+          Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
+
+          1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
+          2. **Salidas/Exits** (IPOs, M&A relevantes)
+          3. **Big Tech** (movimientos estratégicos, productos, regulación)
+          4. **Ecosistema español/latam** (si hay rondas/operaciones destacadas)
+          5. **Tendencias/Análisis** (un dato/señal de mercado relevante)
+
+          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono business/tech.
+          " --skill web
+
+  # Job 4: Resumen Semanal (Lunes 07:00 CEST)
+  weekly-summary:
+    name: 📅 Resumen Semanal
+    if: github.event.schedule == '0 5 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Hermes CLI
+        run: |
+          curl -fsSL https://github.com/nousresearch/hermes/releases/latest/download/hermes-linux-x64 -o hermes
+          chmod +x hermes
+          sudo mv hermes /usr/local/bin/hermes
+          hermes --version
+
+      - name: Run Weekly Summary
+        env:
+          HERMES_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
+          HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          hermes run --prompt "
+          Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
+
+          ## 📅 Semana del [fecha lunes] al [fecha domingo]
+
+          ### 🇪🇸 España - Política & Economía (3-4 bullets)
+          ### 🤖 IA & Investigación (3-4 bullets: modelos, papers, industry)
+          ### 💻 Tech & Startups (3-4 bullets: rondas, exits, big tech)
+          ### 📊 Dato de la semana (1 métrica/gráfico/dato sorprendente con fuente)
+          ### 🔮 Señal a vigilar (1 tendencia emergente)
+
+          Fuentes: mismas que trabajos diarios + newsletters semanales (The Batch, Stratechery, Exponential View, Benedict Evans, etc.). Formato: bullets concisos, fuente entre paréntesis. ~300-400 palabras. Tono ejecutivo/estratégico.
+          " --skill web
+
+  # Optional: Notify on failure (email, Slack, Telegram, etc.)
+  notify-failure:
+    name: 🔔 Notify on failure
+    if: failure()
+    needs: [news-spain, news-ai, news-tech, weekly-summary]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure notification
+        run: |
+          echo "::error::One or more Hermes cron jobs failed. Check GitHub Actions logs."
+          # Add your notification here:
+          # curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          #   -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+          #   -d "text=❌ Hermes cron job failed: ${{ github.workflow }} - ${{ github.job }}"
