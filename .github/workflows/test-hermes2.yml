@@ -1,0 +1,49 @@
+name: Test Hermes Fixed
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Hermes
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+          hermes --version
+      
+      - name: Test Hermes with explicit Authorization header
+        env:
+          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
+          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          # Test if we can monkey-patch or use httpx directly
+          python3 << 'PYEOF'
+import os
+import httpx
+import json
+
+api_key = os.environ['OPENAI_API_KEY']
+base_url = os.environ['OPENAI_BASE_URL']
+model = os.environ['OPENAI_MODEL']
+
+# Direct API call
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "model": model,
+    "messages": [{"role": "user", "content": "Responde solo: OK"}],
+    "max_tokens": 10
+}
+
+response = httpx.post(f"{base_url}/chat/completions", headers=headers, json=payload, timeout=30)
+print(f"Status: {response.status_code}")
+print(f"Response: {response.text}")
+PYEOF
