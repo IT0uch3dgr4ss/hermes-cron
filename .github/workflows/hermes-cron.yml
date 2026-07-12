@@ -38,7 +38,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
-          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -59,6 +59,10 @@ jobs:
             
             if echo "$OUTPUT" | grep -q "HTTP 401"; then
               echo "Authentication error (401) - retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            elif echo "$OUTPUT" | grep -q "HTTP 400"; then
+              echo "Bad request (400) - retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
             elif echo "$OUTPUT" | grep -q "HTTP 429"; then
@@ -123,7 +127,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
-          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -144,6 +148,10 @@ jobs:
             
             if echo "$OUTPUT" | grep -q "HTTP 401"; then
               echo "Authentication error (401) - retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            elif echo "$OUTPUT" | grep -q "HTTP 400"; then
+              echo "Bad request (400) - retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
             elif echo "$OUTPUT" | grep -q "HTTP 429"; then
@@ -207,7 +215,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
-          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -228,6 +236,10 @@ jobs:
             
             if echo "$OUTPUT" | grep -q "HTTP 401"; then
               echo "Authentication error (401) - retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            elif echo "$OUTPUT" | grep -q "HTTP 400"; then
+              echo "Bad request (400) - retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
             elif echo "$OUTPUT" | grep -q "HTTP 429"; then
@@ -291,7 +303,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
-          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct:free
+          OPENAI_MODEL: meta-llama/llama-3.1-405b-instruct
         run: |
           MAX_RETRIES=3
           RETRY_DELAY=30
@@ -314,6 +326,10 @@ jobs:
             
             if echo "$OUTPUT" | grep -q "HTTP 401"; then
               echo "Authentication error (401) - retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            elif echo "$OUTPUT" | grep -q "HTTP 400"; then
+              echo "Bad request (400) - retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
             elif echo "$OUTPUT" | grep -q "HTTP 429"; then
