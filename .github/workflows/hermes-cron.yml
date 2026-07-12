@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout repo (for any scripts)
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -28,11 +28,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Hermes CLI
+      - name: Install Hermes Agent
         run: |
           pip install --upgrade pip
           pip install hermes-agent
-          hermes --version
 
       - name: Run Spain News Summary
         env:
@@ -40,7 +39,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes run --prompt "
+          hermes chat -z "
           Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
 
           1. **Política** (2-3 titulares clave)
@@ -66,11 +65,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Hermes CLI
+      - name: Install Hermes Agent
         run: |
           pip install --upgrade pip
           pip install hermes-agent
-          hermes --version
 
       - name: Run AI Summary
         env:
@@ -78,7 +76,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes run --prompt "
+          hermes chat -z "
           Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
 
           1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
@@ -104,11 +102,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Hermes CLI
+      - name: Install Hermes Agent
         run: |
           pip install --upgrade pip
           pip install hermes-agent
-          hermes --version
 
       - name: Run Tech/Startups Summary
         env:
@@ -116,7 +113,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes run --prompt "
+          hermes chat -z "
           Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
 
           1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
@@ -142,11 +139,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Hermes CLI
+      - name: Install Hermes Agent
         run: |
           pip install --upgrade pip
           pip install hermes-agent
-          hermes --version
 
       - name: Run Weekly Summary
         env:
@@ -154,7 +150,7 @@ jobs:
           HERMES_BASE_URL: https://integrate.api.nvidia.com/v1
           HERMES_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes run --prompt "
+          hermes chat -z "
           Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
 
           ## 📅 Semana del [fecha lunes] al [fecha domingo]
