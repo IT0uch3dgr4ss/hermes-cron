@@ -10,7 +10,7 @@ on:
     - cron: '30 6 * * *'
     # Weekly Monday 07:00 CEST = 05:00 UTC
     - cron: '0 5 * * 1'
-  workflow_dispatch:  # Allow manual trigger from GitHub UI/API
+  workflow_dispatch:
 
 jobs:
   # Job 1: Resumen noticias España (08:00 CEST)
@@ -18,7 +18,7 @@ jobs:
     name: 📰 Resumen noticias España
     if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -33,168 +33,71 @@ jobs:
           pip install --upgrade pip
           pip install hermes-agent
 
-      - name: Run Spain News Summary
+      - name: Run Spain News Summary (with retry)
         id: spain
         env:
           OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
           OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes -z "
-          Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
+          set -e
+          MAX_RETRIES=3
+          RETRY=0
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            OUTPUT=$(hermes -z "
+            Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
 
-          1. **Política** (2-3 titulares clave)
-          2. **Economía/Empresa** (2-3 titulares clave)
-          3. **Sociedad/Sucesos** (1-2 titulares)
-          4. **Deportes** (1-2 titulares)
-          5. **Internacional relevante para España** (1 titular)
+            1. **Política** (2-3 titulares clave)
+            2. **Economía/Empresa** (2-3 titulares clave)
+            3. **Sociedad/Sucesos** (1-2 titulares)
+            4. **Deportes** (1-2 titulares)
+            5. **Internacional relevante para España** (1 titular)
 
-          Formato: bullets concisos, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono periodístico neutral.
-          " chat --skill web
+            Formato: bullets concisos, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono periodístico neutral.
+            " chat --skill web 2>&1)
+            
+            if echo "$OUTPUT" | grep -qi "HTTP 401\|Missing Authentication\|Authentication header\|Error\|Failed"; then
+              echo "Attempt $((RETRY+1)) failed: API error detected"
+              RETRY=$((RETRY+1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "Waiting 10s before retry..."
+                sleep 10
+              fi
+            else
+              echo "Success on attempt $((RETRY+1))"
+              echo "result<<EOF" >> $GITHUB_OUTPUT
+              echo "$OUTPUT" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "All retries failed. Last output:" >&2
+          echo "$OUTPUT" >&2
           echo "result<<EOF" >> $GITHUB_OUTPUT
-          hermes -z "
-          Busca las principales noticias de España de las últimas 24 horas. Usa búsqueda web para encontrar fuentes fiables (El País, El Mundo, ABC, 20minutos, RTVE, Europa Press). Genera un resumen ejecutivo en español con:
-
-          1. **Política** (2-3 titulares clave)
-          2. **Economía/Empresa** (2-3 titulares clave)
-          3. **Sociedad/Sucesos** (1-2 titulares)
-          4. **Deportes** (1-2 titulares)
-          5. **Internacional relevante para España** (1 titular)
-
-          Formato: bullets concisos, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono periodístico neutral.
-          " chat --skill web >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          exit 1
 
       - name: Send to Telegram
         if: always()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="📰 **Resumen Noticias España** ($GITHUB_RUN_NUMBER)%0A%0A${{ steps.spain.outputs.result }}" \
-            -d parse_mode="Markdown"
+          RESULT="${{ steps.spain.outputs.result }}"
+          if echo "$RESULT" | grep -qi "HTTP 401\|Missing Authentication\|Error\|Failed"; then
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="📰 **Resumen Noticias España** ($GITHUB_RUN_NUMBER)%0A%0A❌ **FALLÓ**: Error de autenticación con NVIDIA API" \
+              -d parse_mode="Markdown"
+          else
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="📰 **Resumen Noticias España** ($GITHUB_RUN_NUMBER)%0A%0A$RESULT" \
+              -d parse_mode="Markdown"
+          fi
 
   # Job 2: Resumen IA (08:15 CEST)
   news-ai:
     name: 🤖 Resumen IA
     if: github.event.schedule == '15 6 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Hermes Agent
-        run: |
-          pip install --upgrade pip
-          pip install hermes-agent
-
-      - name: Run AI Summary
-        id: ai
-        env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
-        run: |
-          hermes -z "
-          Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
-
-          1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
-          2. **Investigación destacada** (papers con impacto, autores clave)
-          3. **Industria/Big Tech** (anuncios, partnerships, funding, regulación)
-          4. **Herramientas/Framework** (nuevas librerías, updates mayores)
-          5. **Aplicaciones/Casos de uso** (deployments reales, productos)
-
-          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono técnico pero accesible.
-          " chat --skill web
-          echo "result<<EOF" >> $GITHUB_OUTPUT
-          hermes -z "
-          Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
-
-          1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
-          2. **Investigación destacada** (papers con impacto, autores clave)
-          3. **Industria/Big Tech** (anuncios, partnerships, funding, regulación)
-          4. **Herramientas/Framework** (nuevas librerías, updates mayores)
-          5. **Aplicaciones/Casos de uso** (deployments reales, productos)
-
-          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono técnico pero accesible.
-          " chat --skill web >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Send to Telegram
-        if: always()
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="🤖 **Resumen IA** ($GITHUB_RUN_NUMBER)%0A%0A${{ steps.ai.outputs.result }}" \
-            -d parse_mode="Markdown"
-
-  # Job 3: Resumen Tech/Startups (08:30 CEST)
-  news-tech:
-    name: 💻 Resumen Tech/Startups
-    if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Hermes Agent
-        run: |
-          pip install --upgrade pip
-          pip install hermes-agent
-
-      - name: Run Tech/Startups Summary
-        id: tech
-        env:
-          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
-          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
-        run: |
-          hermes -z "
-          Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
-
-          1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
-          2. **Salidas/Exits** (IPOs, M&A relevantes)
-          3. **Big Tech** (movimientos estratégicos, productos, regulación)
-          4. **Ecosistema español/latam** (si hay rondas/operaciones destacadas)
-          5. **Tendencias/Análisis** (un dato/señal de mercado relevante)
-
-          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono business/tech.
-          " chat --skill web
-          echo "result<<EOF" >> $GITHUB_OUTPUT
-          hermes -z "
-          Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
-
-          1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
-          2. **Salidas/Exits** (IPOs, M&A relevantes)
-          3. **Big Tech** (movimientos estratégicos, productos, regulación)
-          4. **Ecosistema español/latam** (si hay rondas/operaciones destacadas)
-          5. **Tendencias/Análisis** (un dato/señal de mercado relevante)
-
-          Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono business/tech.
-          " chat --skill web >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Send to Telegram
-        if: always()
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="💻 **Resumen Tech/Startups** ($GITHUB_RUN_NUMBER)%0A%0A${{ steps.tech.outputs.result }}" \
-            -d parse_mode="Markdown"
-
-  # Job 4: Resumen Semanal (Lunes 07:00 CEST)
-  weekly-summary:
-    name: 📅 Resumen Semanal
-    if: github.event.schedule == '0 5 * * 1' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -210,51 +113,230 @@ jobs:
           pip install --upgrade pip
           pip install hermes-agent
 
-      - name: Run Weekly Summary
+      - name: Run AI Summary (with retry)
+        id: ai
+        env:
+          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
+          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          set -e
+          MAX_RETRIES=3
+          RETRY=0
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            OUTPUT=$(hermes -z "
+            Busca las noticias más relevantes de Inteligencia Artificial de las últimas 24-48 horas. Fuentes: The Batch (deeplearning.ai), MIT Technology Review AI, VentureBeat AI, The Verge AI, ArXiv (cs.AI, cs.CL, cs.LG), blogs de OpenAI, Anthropic, Google DeepMind, Meta AI, Microsoft Research, NVIDIA. Resumen ejecutivo en español con:
+
+            1. **Nuevos modelos/releases** (nombres, capacidades, benchmarks si hay)
+            2. **Investigación destacada** (papers con impacto, autores clave)
+            3. **Industria/Big Tech** (anuncios, partnerships, funding, regulación)
+            4. **Herramientas/Framework** (nuevas librerías, updates mayores)
+            5. **Aplicaciones/Casos de uso** (deployments reales, productos)
+
+            Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono técnico pero accesible.
+            " chat --skill web 2>&1)
+            
+            if echo "$OUTPUT" | grep -qi "HTTP 401\|Missing Authentication\|Authentication header\|Error\|Failed"; then
+              echo "Attempt $((RETRY+1)) failed: API error detected"
+              RETRY=$((RETRY+1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "Waiting 10s before retry..."
+                sleep 10
+              fi
+            else
+              echo "Success on attempt $((RETRY+1))"
+              echo "result<<EOF" >> $GITHUB_OUTPUT
+              echo "$OUTPUT" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "All retries failed. Last output:" >&2
+          echo "$OUTPUT" >&2
+          echo "result<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Send to Telegram
+        if: always()
+        run: |
+          RESULT="${{ steps.ai.outputs.result }}"
+          if echo "$RESULT" | grep -qi "HTTP 401\|Missing Authentication\|Error\|Failed"; then
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="🤖 **Resumen IA** ($GITHUB_RUN_NUMBER)%0A%0A❌ **FALLÓ**: Error de autenticación con NVIDIA API" \
+              -d parse_mode="Markdown"
+          else
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="🤖 **Resumen IA** ($GITHUB_RUN_NUMBER)%0A%0A$RESULT" \
+              -d parse_mode="Markdown"
+          fi
+
+  # Job 3: Resumen Tech/Startups (08:30 CEST)
+  news-tech:
+    name: 💻 Resumen Tech/Startups
+    if: github.event.schedule == '30 6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hermes Agent
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+
+      - name: Run Tech/Startups Summary (with retry)
+        id: tech
+        env:
+          OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
+          OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+        run: |
+          set -e
+          MAX_RETRIES=3
+          RETRY=0
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            OUTPUT=$(hermes -z "
+            Busca las noticias más relevantes de Tech, Startups y Venture Capital de las últimas 24-48 horas. Fuentes: TechCrunch, The Information, Bloomberg Tech, Reuters Tech, Crunchbase News, PitchBook, El Confidencial Tecnología, CincoDías, Sifted, EU-Startups. Resumen ejecutivo en español con:
+
+            1. **Rondas de financiación** (Series A/B/C >10M€, nombres + cantidad + sector)
+            2. **Salidas/Exits** (IPOs, M&A relevantes)
+            3. **Big Tech** (movimientos estratégicos, productos, regulación)
+            4. **Ecosistema español/latam** (si hay rondas/operaciones destacadas)
+            5. **Tendencias/Análisis** (un dato/señal de mercado relevante)
+
+            Formato: bullets, una línea por item, fuente entre paréntesis. ~150-200 palabras. Tono business/tech.
+            " chat --skill web 2>&1)
+            
+            if echo "$OUTPUT" | grep -qi "HTTP 401\|Missing Authentication\|Authentication header\|Error\|Failed"; then
+              echo "Attempt $((RETRY+1)) failed: API error detected"
+              RETRY=$((RETRY+1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "Waiting 10s before retry..."
+                sleep 10
+              fi
+            else
+              echo "Success on attempt $((RETRY+1))"
+              echo "result<<EOF" >> $GITHUB_OUTPUT
+              echo "$OUTPUT" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "All retries failed. Last output:" >&2
+          echo "$OUTPUT" >&2
+          echo "result<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Send to Telegram
+        if: always()
+        run: |
+          RESULT="${{ steps.tech.outputs.result }}"
+          if echo "$RESULT" | grep -qi "HTTP 401\|Missing Authentication\|Error\|Failed"; then
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="💻 **Resumen Tech/Startups** ($GITHUB_RUN_NUMBER)%0A%0A❌ **FALLÓ**: Error de autenticación con NVIDIA API" \
+              -d parse_mode="Markdown"
+          else
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="💻 **Resumen Tech/Startups** ($GITHUB_RUN_NUMBER)%0A%0A$RESULT" \
+              -d parse_mode="Markdown"
+          fi
+
+  # Job 4: Resumen Semanal (Lunes 07:00 CEST)
+  weekly-summary:
+    name: 📅 Resumen Semanal
+    if: github.event.schedule == '0 5 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hermes Agent
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+
+      - name: Run Weekly Summary (with retry)
         id: weekly
         env:
           OPENAI_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
           OPENAI_MODEL: nvidia/nemotron-3-ultra-550b-a55b
         run: |
-          hermes -z "
-          Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
+          set -e
+          MAX_RETRIES=3
+          RETRY=0
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            OUTPUT=$(hermes -z "
+            Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
 
-          ## 📅 Semana del [fecha lunes] al [fecha domingo]
+            ## 📅 Semana del [fecha lunes] al [fecha domingo]
 
-          ### 🇪🇸 España - Política & Economía (3-4 bullets)
-          ### 🤖 IA & Investigación (3-4 bullets: modelos, papers, industry)
-          ### 💻 Tech & Startups (3-4 bullets: rondas, exits, big tech)
-          ### 📊 Dato de la semana (1 métrica/gráfico/dato sorprendente con fuente)
-          ### 🔮 Señal a vigilar (1 tendencia emergente)
+            ### 🇪🇸 España - Política & Economía (3-4 bullets)
+            ### 🤖 IA & Investigación (3-4 bullets: modelos, papers, industry)
+            ### 💻 Tech & Startups (3-4 bullets: rondas, exits, big tech)
+            ### 📊 Dato de la semana (1 métrica/gráfico/dato sorprendente con fuente)
+            ### 🔮 Señal a vigilar (1 tendencia emergente)
 
-          Fuentes: mismas que trabajos diarios + newsletters semanales (The Batch, Stratechery, Exponential View, Benedict Evans, etc.). Formato: bullets concisos, fuente entre paréntesis. ~300-400 palabras. Tono ejecutivo/estratégico.
-          " chat --skill web
+            Fuentes: mismas que trabajos diarios + newsletters semanales (The Batch, Stratechery, Exponential View, Benedict Evans, etc.). Formato: bullets concisos, fuente entre paréntesis. ~300-400 palabras. Tono ejecutivo/estratégico.
+            " chat --skill web 2>&1)
+            
+            if echo "$OUTPUT" | grep -qi "HTTP 401\|Missing Authentication\|Authentication header\|Error\|Failed"; then
+              echo "Attempt $((RETRY+1)) failed: API error detected"
+              RETRY=$((RETRY+1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "Waiting 10s before retry..."
+                sleep 10
+              fi
+            else
+              echo "Success on attempt $((RETRY+1))"
+              echo "result<<EOF" >> $GITHUB_OUTPUT
+              echo "$OUTPUT" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "All retries failed. Last output:" >&2
+          echo "$OUTPUT" >&2
           echo "result<<EOF" >> $GITHUB_OUTPUT
-          hermes -z "
-          Genera un resumen semanal ejecutivo (lunes 07:00) compilando lo más relevante de la semana anterior en España y mundo tech/IA. Estructura:
-
-          ## 📅 Semana del [fecha lunes] al [fecha domingo]
-
-          ### 🇪🇸 España - Política & Economía (3-4 bullets)
-          ### 🤖 IA & Investigación (3-4 bullets: modelos, papers, industry)
-          ### 💻 Tech & Startups (3-4 bullets: rondas, exits, big tech)
-          ### 📊 Dato de la semana (1 métrica/gráfico/dato sorprendente con fuente)
-          ### 🔮 Señal a vigilar (1 tendencia emergente)
-
-          Fuentes: mismas que trabajos diarios + newsletters semanales (The Batch, Stratechery, Exponential View, Benedict Evans, etc.). Formato: bullets concisos, fuente entre paréntesis. ~300-400 palabras. Tono ejecutivo/estratégico.
-          " chat --skill web >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          exit 1
 
       - name: Send to Telegram
         if: always()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="📅 **Resumen Semanal** ($GITHUB_RUN_NUMBER)%0A%0A${{ steps.weekly.outputs.result }}" \
-            -d parse_mode="Markdown"
+          RESULT="${{ steps.weekly.outputs.result }}"
+          if echo "$RESULT" | grep -qi "HTTP 401\|Missing Authentication\|Error\|Failed"; then
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="📅 **Resumen Semanal** ($GITHUB_RUN_NUMBER)%0A%0A❌ **FALLÓ**: Error de autenticación con NVIDIA API" \
+              -d parse_mode="Markdown"
+          else
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="📅 **Resumen Semanal** ($GITHUB_RUN_NUMBER)%0A%0A$RESULT" \
+              -d parse_mode="Markdown"
+          fi
 
-  # Optional: Notify on failure (email, Slack, Telegram, etc.)
+  # Notify on failure
   notify-failure:
     name: 🔔 Notify on failure
     if: failure()
